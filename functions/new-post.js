@@ -1,81 +1,78 @@
-const axios = require("axios");
+const axios = require('axios');
 
-exports.handler = async function(event) {
-  const apiKey = process.env.JSONBIN_API_KEY;
-  const binId = process.env.JSONBIN_ID;
-
-  // Responder a preflight OPTIONS request
-  if (event.httpMethod === "OPTIONS") {
-    return {
-      statusCode: 200,
-      headers: {
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Headers': 'Content-Type',
-        'Access-Control-Allow-Methods': 'POST, OPTIONS'
-      },
-      body: ''
-    };
+exports.handler = async function (event) {
+  if (event.httpMethod !== 'POST') {
+    return { statusCode: 405, body: 'Método no permitido' };
   }
 
-  if (event.httpMethod !== "POST") {
-    return {
-      statusCode: 405,
-      headers: {
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Headers': 'Content-Type'
-      },
-      body: JSON.stringify({ error: "Method not allowed" }),
-    };
-  }
+  const API_KEY = process.env.JSONBIN_API_KEY;
+  const BIN_ID = process.env.JSONBIN_ID;
 
   try {
-    const { autor, mensaje, categoria } = JSON.parse(event.body);
+    const body = JSON.parse(event.body);
 
-    const getResponse = await axios.get(`https://api.jsonbin.io/v3/b/${binId}/latest`, {
-      headers: {
-        "X-Master-Key": apiKey,
-      }
+    // Obtener datos actuales del bin
+    const { data } = await axios.get(`https://api.jsonbin.io/v3/b/${BIN_ID}/latest`, {
+      headers: { 'X-Master-Key': API_KEY }
     });
 
-    const datosActuales = getResponse.data.record;
+    const posts = data.record;
 
-    const nuevoComentario = {
-      autor,
-      mensaje,
-      fecha: new Date().toLocaleString("es-ES"),
-      respuestas: [],
-      categoria
-    };
+    if (body.mensajeIndex !== undefined) {
+      // Es una respuesta a un mensaje existente
+      const index = Number(body.mensajeIndex);
 
-    const nuevosDatos = Array.isArray(datosActuales)
-      ? [...datosActuales, nuevoComentario]
-      : [datosActuales, nuevoComentario];
+      if (!isNaN(index) && posts[index]) {
+        const respuesta = {
+          autor: body.autor,
+          mensaje: body.mensaje,
+          fecha: body.fecha
+        };
 
-    await axios.put(`https://api.jsonbin.io/v3/b/${binId}`, nuevosDatos, {
+        if (!Array.isArray(posts[index].respuestas)) {
+          posts[index].respuestas = [];
+        }
+
+        posts[index].respuestas.push(respuesta);
+      } else {
+        return {
+          statusCode: 400,
+          body: JSON.stringify({ error: 'Índice de mensaje inválido para respuesta' })
+        };
+      }
+
+    } else {
+      // Es un nuevo mensaje
+      posts.push({
+        autor: body.autor,
+        mensaje: body.mensaje,
+        fecha: body.fecha,
+        respuestas: [],
+        categoria: body.categoria || "general"
+      });
+    }
+
+    // Guardar en JSONBin
+    await axios.put(`https://api.jsonbin.io/v3/b/${BIN_ID}`, posts, {
       headers: {
-        "Content-Type": "application/json",
-        "X-Master-Key": apiKey,
-        "X-Bin-Private": false
+        'Content-Type': 'application/json',
+        'X-Master-Key': API_KEY,
+        'X-Bin-Versioning': 'false'
       }
     });
 
     return {
       statusCode: 200,
-      headers: {
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Headers': 'Content-Type'
-      },
       body: JSON.stringify({ success: true })
     };
 
   } catch (error) {
     return {
       statusCode: 500,
-      headers: {
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Headers': 'Content-Type'
-      },
-      body: JSON.stringify({ error: error.message })
+      body: JSON.stringify({
+        error: 'Error al guardar en JSONBin',
+        details: error.message
+      })
     };
   }
 };
