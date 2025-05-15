@@ -12,9 +12,9 @@ exports.handler = async function(event) {
   }
 
   try {
-    const { autor, comentario } = JSON.parse(event.body);
+    const { autor, mensaje, categoria } = JSON.parse(event.body);
 
-    // 1. Obtener los datos actuales
+    // 1. Obtener el contenido actual del bin
     const getResponse = await axios.get(`https://api.jsonbin.io/v3/b/${binId}/latest`, {
       headers: {
         "X-Master-Key": apiKey,
@@ -23,19 +23,21 @@ exports.handler = async function(event) {
 
     const datosActuales = getResponse.data.record;
 
-    // 2. Crear nuevo comentario
+    // 2. Crear nuevo mensaje con estructura completa
     const nuevoComentario = {
       autor,
-      comentario,
-      fecha: new Date().toISOString()
+      mensaje,
+      fecha: new Date().toLocaleString("es-ES"), // formato legible
+      respuestas: [],
+      categoria
     };
 
-    // 3. Añadir al array existente (o crear array si está vacío)
+    // 3. Si los datos actuales no son array, inicializar uno
     const nuevosDatos = Array.isArray(datosActuales)
       ? [...datosActuales, nuevoComentario]
-      : [nuevoComentario];
+      : [datosActuales, nuevoComentario];
 
-    // 4. Hacer PUT con los nuevos datos
+    // 4. Actualizar el bin
     await axios.put(`https://api.jsonbin.io/v3/b/${binId}`, nuevosDatos, {
       headers: {
         "Content-Type": "application/json",
