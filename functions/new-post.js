@@ -1,51 +1,46 @@
-const axios = require('axios');
+const axios = require("axios");
 
-exports.handler = async function (event) {
-  if (event.httpMethod !== 'POST') {
-    return { statusCode: 405, body: 'Método no permitido' };
+exports.handler = async function(event) {
+  const apiKey = process.env.JSONBIN_API_KEY;
+  const binId = process.env.JSONBIN_ID;
+
+  if (event.httpMethod !== "POST") {
+    return {
+      statusCode: 405,
+      body: JSON.stringify({ error: "Method not allowed" }),
+    };
   }
 
-  const API_KEY = process.env.JSONBIN_API_KEY;
-  const BIN_ID = process.env.JSONBIN_ID;
-
   try {
-    const body = JSON.parse(event.body);
+    const { autor, comentario } = JSON.parse(event.body);
 
-    // Obtener datos actuales
-    const { data } = await axios.get(`https://api.jsonbin.io/v3/b/${BIN_ID}/latest`, {
-      headers: { 'X-Master-Key': API_KEY }
+    // 1. Obtener los datos actuales
+    const getResponse = await axios.get(`https://api.jsonbin.io/v3/b/${binId}/latest`, {
+      headers: {
+        "X-Master-Key": apiKey,
+      }
     });
 
-    const posts = data.record;
+    const datosActuales = getResponse.data.record;
 
-    if (body.mensajeIndex !== undefined) {
-      // Es una respuesta
-      const respuesta = {
-        autor: body.autor,
-        mensaje: body.mensaje,
-        fecha: body.fecha,
-        respondeA: body.respondeA || "mensaje principal"
-      };
+    // 2. Crear nuevo comentario
+    const nuevoComentario = {
+      autor,
+      comentario,
+      fecha: new Date().toISOString()
+    };
 
-      posts[body.mensajeIndex].respuestas = posts[body.mensajeIndex].respuestas || [];
-      posts[body.mensajeIndex].respuestas.push(respuesta);
-    } else {
-      // Es un nuevo mensaje
-      posts.push({
-        autor: body.autor,
-        mensaje: body.mensaje,
-        fecha: body.fecha,
-        respuestas: [],
-        categoria: body.categoria || "general"
-      });
-    }
+    // 3. Añadir al array existente (o crear array si está vacío)
+    const nuevosDatos = Array.isArray(datosActuales)
+      ? [...datosActuales, nuevoComentario]
+      : [nuevoComentario];
 
-    // Guardar en JSONBin
-    await axios.put(`https://api.jsonbin.io/v3/b/${BIN_ID}`, posts, {
+    // 4. Hacer PUT con los nuevos datos
+    await axios.put(`https://api.jsonbin.io/v3/b/${binId}`, nuevosDatos, {
       headers: {
-        'Content-Type': 'application/json',
-        'X-Master-Key': API_KEY,
-        'X-Bin-Versioning': 'false'
+        "Content-Type": "application/json",
+        "X-Master-Key": apiKey,
+        "X-Bin-Private": false
       }
     });
 
@@ -57,7 +52,7 @@ exports.handler = async function (event) {
   } catch (error) {
     return {
       statusCode: 500,
-      body: JSON.stringify({ error: 'Error al guardar en JSONBin', details: error.message })
+      body: JSON.stringify({ error: error.message })
     };
   }
 };
