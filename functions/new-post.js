@@ -4,9 +4,26 @@ exports.handler = async function(event) {
   const apiKey = process.env.JSONBIN_API_KEY;
   const binId = process.env.JSONBIN_ID;
 
+  // Responder a preflight OPTIONS request
+  if (event.httpMethod === "OPTIONS") {
+    return {
+      statusCode: 200,
+      headers: {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Headers': 'Content-Type',
+        'Access-Control-Allow-Methods': 'POST, OPTIONS'
+      },
+      body: ''
+    };
+  }
+
   if (event.httpMethod !== "POST") {
     return {
       statusCode: 405,
+      headers: {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Headers': 'Content-Type'
+      },
       body: JSON.stringify({ error: "Method not allowed" }),
     };
   }
@@ -14,7 +31,6 @@ exports.handler = async function(event) {
   try {
     const { autor, mensaje, categoria } = JSON.parse(event.body);
 
-    // 1. Obtener el contenido actual del bin
     const getResponse = await axios.get(`https://api.jsonbin.io/v3/b/${binId}/latest`, {
       headers: {
         "X-Master-Key": apiKey,
@@ -23,21 +39,18 @@ exports.handler = async function(event) {
 
     const datosActuales = getResponse.data.record;
 
-    // 2. Crear nuevo mensaje con estructura completa
     const nuevoComentario = {
       autor,
       mensaje,
-      fecha: new Date().toLocaleString("es-ES"), // formato legible
+      fecha: new Date().toLocaleString("es-ES"),
       respuestas: [],
       categoria
     };
 
-    // 3. Si los datos actuales no son array, inicializar uno
     const nuevosDatos = Array.isArray(datosActuales)
       ? [...datosActuales, nuevoComentario]
       : [datosActuales, nuevoComentario];
 
-    // 4. Actualizar el bin
     await axios.put(`https://api.jsonbin.io/v3/b/${binId}`, nuevosDatos, {
       headers: {
         "Content-Type": "application/json",
@@ -48,12 +61,20 @@ exports.handler = async function(event) {
 
     return {
       statusCode: 200,
+      headers: {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Headers': 'Content-Type'
+      },
       body: JSON.stringify({ success: true })
     };
 
   } catch (error) {
     return {
       statusCode: 500,
+      headers: {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Headers': 'Content-Type'
+      },
       body: JSON.stringify({ error: error.message })
     };
   }
