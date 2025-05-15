@@ -1,6 +1,20 @@
 const axios = require('axios');
 
-exports.handler = async function () {
+exports.handler = async function (event) {
+  const headers = {
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Headers': 'Content-Type',
+    'Access-Control-Allow-Methods': 'GET, OPTIONS'
+  };
+
+  if (event.httpMethod === 'OPTIONS') {
+    return {
+      statusCode: 200,
+      headers,
+      body: ''
+    };
+  }
+
   const API_KEY = process.env.JSONBIN_API_KEY;
   const BIN_ID = process.env.JSONBIN_ID;
 
@@ -14,19 +28,13 @@ exports.handler = async function () {
     const posts = response.data.record;
     return {
       statusCode: 200,
-      headers: {
-        'Access-Control-Allow-Origin': '*', // o 'http://localhost:443' si quieres limitar
-        'Access-Control-Allow-Headers': 'Content-Type'
-      },
+      headers,
       body: JSON.stringify(posts)
     };
   } catch (error) {
     return {
       statusCode: 500,
-      headers: {
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Headers': 'Content-Type'
-      },
+      headers,
       body: JSON.stringify({ error: 'Error al obtener los mensajes', details: error.message })
     };
   }
