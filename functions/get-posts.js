@@ -14,11 +14,19 @@ exports.handler = async function () {
     const posts = response.data.record;
     return {
       statusCode: 200,
+      headers: {
+        'Access-Control-Allow-Origin': '*', // o 'http://localhost:443' si quieres limitar
+        'Access-Control-Allow-Headers': 'Content-Type'
+      },
       body: JSON.stringify(posts)
     };
   } catch (error) {
     return {
       statusCode: 500,
+      headers: {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Headers': 'Content-Type'
+      },
       body: JSON.stringify({ error: 'Error al obtener los mensajes', details: error.message })
     };
   }
